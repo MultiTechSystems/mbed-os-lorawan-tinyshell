@@ -118,7 +118,7 @@ void wait_for_command() {
 
     printf("Press a key to enter command mode\r\n");
 
-    while (tm.read_ms() < 1000u) {
+    while (tm.read_ms() < 1000) {
         if (pc.readable()) {
             while (pc.readable()) {
                 pc.getc();
@@ -249,8 +249,8 @@ static void send_message()
     packet_len = sprintf((char *) tx_buffer, "Dummy Sensor Value is %3.1f",
                          sensor_value);
 
-    retcode = lorawan.send(MBED_CONF_LORA_APP_PORT, tx_buffer, packet_len,
-                           MSG_UNCONFIRMED_FLAG);
+    retcode = lorawan.send(device_config.settings.Port, tx_buffer, packet_len,
+                           device_config.settings.ACKAttempts > 0 ?  MSG_CONFIRMED_FLAG : MSG_UNCONFIRMED_FLAG);
 
     if (retcode < 0) {
         retcode == LORAWAN_STATUS_WOULD_BLOCK ? printf("send - WOULD BLOCK\r\n")
@@ -258,7 +258,7 @@ static void send_message()
 
         if (retcode == LORAWAN_STATUS_WOULD_BLOCK) {
             //retry in 3 seconds
-            if (MBED_CONF_LORA_DUTY_CYCLE_ON) {
+            if (device_config.app_settings.DutyCycleEnabled) {
                 ev_queue.call_in(3000, send_message);
             }
         }
@@ -300,10 +300,10 @@ static void lora_event_handler(lorawan_event_t event)
     switch (event) {
         case CONNECTED:
             printf("\r\n Connection - Successful \r\n");
-            if (MBED_CONF_LORA_DUTY_CYCLE_ON) {
+            if (device_config.app_settings.DutyCycleEnabled) {
                 send_message();
             } else {
-                ev_queue.call_every(TX_TIMER, send_message);
+                ev_queue.call_every(device_config.app_settings.TxInterval, send_message);
             }
 
             break;
@@ -313,7 +313,7 @@ static void lora_event_handler(lorawan_event_t event)
             break;
         case TX_DONE:
             printf("\r\n Message Sent to Network Server \r\n");
-            if (MBED_CONF_LORA_DUTY_CYCLE_ON) {
+            if (device_config.app_settings.DutyCycleEnabled) {
                 send_message();
             }
             break;
@@ -323,7 +323,7 @@ static void lora_event_handler(lorawan_event_t event)
         case TX_SCHEDULING_ERROR:
             printf("\r\n Transmission Error - EventCode = %d \r\n", event);
             // try again
-            if (MBED_CONF_LORA_DUTY_CYCLE_ON) {
+            if (device_config.app_settings.DutyCycleEnabled) {
                 send_message();
             }
             break;
@@ -340,7 +340,7 @@ static void lora_event_handler(lorawan_event_t event)
             break;
         case UPLINK_REQUIRED:
             printf("\r\n Uplink required by NS \r\n");
-            if (MBED_CONF_LORA_DUTY_CYCLE_ON) {
+            if (device_config.app_settings.DutyCycleEnabled) {
                 send_message();
             }
             break;
