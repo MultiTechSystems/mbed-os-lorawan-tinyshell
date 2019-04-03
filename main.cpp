@@ -13,8 +13,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+*/
 #include <stdio.h>
+
+#include "mbed.h"
 
 #include "lorawan/LoRaWANInterface.h"
 #include "lorawan/system/lorawan_data_structures.h"
@@ -24,6 +26,12 @@
 #include "DummySensor.h"
 #include "trace_helper.h"
 #include "lora_radio_helper.h"
+
+#include "commands.h"
+
+ConfigManager config_mng;
+DeviceConfig_t device_config;
+
 
 using namespace events;
 
@@ -87,6 +95,44 @@ static LoRaWANInterface lorawan(radio);
  */
 static lorawan_app_callbacks_t callbacks;
 
+
+Serial pc(USBTX, USBRX);
+
+
+void default_configuration() {
+    uint8_t deveui[] = MBED_CONF_LORA_DEVICE_EUI;
+    memcpy(device_config.provisioning.DeviceEUI, deveui, 8);
+
+    uint8_t appeui[] = MBED_CONF_LORA_APPLICATION_EUI;
+    memcpy(device_config.settings.AppEUI, appeui, 8);
+
+    uint8_t appkey[] = MBED_CONF_LORA_APPLICATION_KEY;
+    memcpy(device_config.settings.AppKey, appkey, 16);
+}
+
+void wait_for_command() {
+    bool cmd_mode = false;
+
+    Timer tm;
+    tm.start();
+
+    printf("Press a key to enter command mode\r\n");
+
+    while (tm.read_ms() < 1000u) {
+        if (pc.readable()) {
+            while (pc.readable()) {
+                pc.getc();
+            }
+            cmd_mode = true;
+            break;
+        }
+    }
+
+    if (cmd_mode) {
+        tinyshell_thread();
+    }
+}
+
 /**
  * Entry point for application
  */
@@ -97,6 +143,14 @@ int main(void)
 
     // stores the status of a call to LoRaWAN protocol
     lorawan_status_t retcode;
+
+    pc.baud(115200);
+
+//     default_configuration();
+
+    config_mng.Load(device_config);
+
+    wait_for_command();
 
     // Initialize LoRaWAN stack
     if (lorawan.initialize(&ev_queue) != LORAWAN_STATUS_OK) {
@@ -110,25 +164,53 @@ int main(void)
     callbacks.events = mbed::callback(lora_event_handler);
     lorawan.add_app_callbacks(&callbacks);
 
+
     // Set number of retries in case of CONFIRMED messages
-    if (lorawan.set_confirmed_msg_retries(CONFIRMED_MSG_RETRY_COUNTER)
-            != LORAWAN_STATUS_OK) {
+    if (lorawan.set_confirmed_msg_retries(device_config.settings.ACKAttempts) != LORAWAN_STATUS_OK) {
         printf("\r\n set_confirmed_msg_retries failed! \r\n\r\n");
         return -1;
     }
 
-    printf("\r\n CONFIRMED message retries : %d \r\n",
-           CONFIRMED_MSG_RETRY_COUNTER);
+    printf("\tCONFIRMED message retries : %d \r\n", device_config.settings.ACKAttempts);
 
-    // Enable adaptive data rate
-    if (lorawan.enable_adaptive_datarate() != LORAWAN_STATUS_OK) {
-        printf("\r\n enable_adaptive_datarate failed! \r\n");
+    printf("\tAdaptive data  rate (ADR) - %s \r\n", device_config.settings.EnableADR ? "Enabled" : "Disabled");
+
+
+    if (device_config.settings.EnableADR) {
+        if (lorawan.enable_adaptive_datarate() != LORAWAN_STATUS_OK) {
+            printf("\r\n enable_adaptive_datarate failed! \r\n");
+            return -1;
+        }
+    } else {
+        if (lorawan.disable_adaptive_datarate() != LORAWAN_STATUS_OK) {
+            printf("\r\n disable_adaptive_datarate failed! \r\n");
+            return -1;
+        }
+
+        if (lorawan.set_datarate(device_config.settings.TxDataRate) != LORAWAN_STATUS_OK) {
+            printf("\r\n set_datarate failed! \r\n");
+            return -1;
+        }
+
+        printf("\tTx Datarate : DR%d \r\n", device_config.settings.TxDataRate);
+    }
+
+    if (lorawan.set_device_class(static_cast<device_class_t>(device_config.settings.Class)) != LORAWAN_STATUS_OK) {
+        printf("\r\n set_device_class failed! \r\n");
         return -1;
     }
 
-    printf("\r\n Adaptive data  rate (ADR) - Enabled \r\n");
+    printf("\tDevice Class : %s \r\n", (device_config.settings.Class == CLASS_C ? "C" : "A"));
 
-    retcode = lorawan.connect();
+    lorawan_connect_t lwc;
+
+    lwc.connect_type = LORAWAN_CONNECTION_OTAA;
+    lwc.connection_u.otaa.dev_eui = device_config.provisioning.DeviceEUI;
+    lwc.connection_u.otaa.app_eui = device_config.settings.AppEUI;
+    lwc.connection_u.otaa.app_key = device_config.settings.AppKey;
+    lwc.connection_u.otaa.nb_trials = 1;
+
+    retcode = lorawan.connect(lwc);
 
     if (retcode == LORAWAN_STATUS_OK ||
             retcode == LORAWAN_STATUS_CONNECT_IN_PROGRESS) {
@@ -206,7 +288,7 @@ static void receive_message()
         printf("%02x ", rx_buffer[i]);
     }
     printf("\r\n");
-    
+
     memset(rx_buffer, 0, sizeof(rx_buffer));
 }
 

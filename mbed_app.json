@@ -5,7 +5,6 @@
             "value": "SX1276"
         },
         "main_stack_size":     { "value": 4096 },
-
         "lora-spi-mosi":       { "value": "NC" },
         "lora-spi-miso":       { "value": "NC" },
         "lora-spi-sclk":       { "value": "NC" },
@@ -32,7 +31,7 @@
             "platform.default-serial-baud-rate": 115200,
             "lora.over-the-air-activation": true,
             "lora.duty-cycle-on": true,
-            "lora.phy": "EU868",
+            "lora.phy": "US915",
             "lora.device-eui": "{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }",
             "lora.application-eui": "{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }",
             "lora.application-key": "{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }"
