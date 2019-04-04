@@ -32,19 +32,21 @@ Otherwise the application will be started.
 Press a key to enter command mode
 MTS LoRaWAN shell build Apr  3 2019 11:05:18
 $
-help      display help
-reset     reset command
-run       run command
-deveui    deveui command
-appeui    appeui command
-appkey    appkey command
-retries   ack retries setting
-datarate  datarate setting
-class     device class setting
-adr       adr enabled
-savep     save provisioning
-save      save settings
-$
+help        display help
+reset       reset command
+run         run command
+deveui      deveui command
+appeui      appeui command
+appkey      appkey command
+retries     ack retries setting
+datarate    datarate setting
+class       device class setting
+adr         adr enabled
+port        Application port
+txinterval  Tx interval
+dutycycle   Duty Cycle enabled
+savep       save provisioning
+save        save settings
 
 ```
 
