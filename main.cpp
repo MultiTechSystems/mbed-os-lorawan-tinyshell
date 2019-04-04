@@ -84,6 +84,7 @@ static EventQueue ev_queue(MAX_NUMBER_OF_EVENTS *EVENTS_EVENT_SIZE);
  * application which in turn drive the application.
  */
 static void lora_event_handler(lorawan_event_t event);
+static uint8_t lora_battery_handler(void);
 
 /**
  * Constructing Mbed LoRaWANInterface and passing it the radio object from lora_radio_helper.
@@ -162,6 +163,8 @@ int main(void)
 
     // prepare application callbacks
     callbacks.events = mbed::callback(lora_event_handler);
+    callbacks.battery_level = mbed::callback(lora_battery_handler);
+
     lorawan.add_app_callbacks(&callbacks);
 
 
@@ -208,7 +211,7 @@ int main(void)
     lwc.connection_u.otaa.dev_eui = device_config.provisioning.DeviceEUI;
     lwc.connection_u.otaa.app_eui = device_config.settings.AppEUI;
     lwc.connection_u.otaa.app_key = device_config.settings.AppKey;
-    lwc.connection_u.otaa.nb_trials = 1;
+    lwc.connection_u.otaa.nb_trials = 3;
 
     retcode = lorawan.connect(lwc);
 
@@ -292,6 +295,10 @@ static void receive_message()
     memset(rx_buffer, 0, sizeof(rx_buffer));
 }
 
+static uint8_t lora_battery_handler(void) {
+    return 0xFF;
+}
+
 /**
  * Event handler
  */
@@ -300,9 +307,9 @@ static void lora_event_handler(lorawan_event_t event)
     switch (event) {
         case CONNECTED:
             printf("\r\n Connection - Successful \r\n");
-            if (device_config.app_settings.DutyCycleEnabled) {
-                send_message();
-            } else {
+            send_message();
+
+            if (!device_config.app_settings.DutyCycleEnabled) {
                 ev_queue.call_every(device_config.app_settings.TxInterval, send_message);
             }
 
